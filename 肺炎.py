@@ -7,10 +7,8 @@ from prettytable import PrettyTable as tb
 path='/storage/F655-DA70/python/temp/f.txt'
 url = 'https://view.inews.qq.com/g2/getOnsInfo?name=wuwei_ww_area_counts&callback=&_=%d'%int(time()*1000)
 data = loads(get(url).json()['data'])
-#print(data)
 tb=tb()
 tb.field_names=['国家','省','城市','确诊','疑似','治愈','死亡']
 for i in data:
     tb.add_row([i['country'],i['area'],i['city'],i['confirm'],i['suspect'],i['heal'],i['dead']])
-#trans={'country':'国家','area':'省','city':'城市','confirm':'确诊','suspect':'疑似','heal':'治愈','dead':'死亡'}
 print(tb)

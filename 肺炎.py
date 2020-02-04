@@ -1,54 +1,46 @@
 from requests import get
-from bs4 import BeautifulSoup as bs
-from json import loads
+from time import localtime
 from prettytable import PrettyTable
-#from os import system# win10
-#system('')# win10
 def add_0(n):
     if n: return str(n)
     else: return '0'
-def pr(s):
-    global i
-    n = i[s]
-    if n: return int(n)
-    else: return 0
-def cl(m):
+def color(m):
     return(f'\033[33;m{m}\033[0m')
-head = {'User-Agent': 'Mozilla/5.0 (Linux; Android 8.0.0; HUAWEI NXT-TL00 Build/HUAWEINXT-TL00; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/80.0.3987.58 Mobile Safari/537.36 MMWEBID/5671 MicroMessenger/7.0.10.1580(0x27000AF1) Process/tools NetType/WIFI Language/zh_CN ABI/arm64'}
-response = get('https://voice.baidu.com/act/newpneumonia/newpneumonia', headers=head)
-soup = bs(response.text, features="html.parser")
-res = soup.findAll('script')
-d = 'V.conf'
-for i in res:
-    s = i.text
-    if d in s:
-        m = s.index('V.conf')+9
-        n = s.index('caseOutsideList')
-        data = loads(s[m:n - 2] + '}]}')['component'][0]
-        break
-print('更新时间:', data['mapLastUpdatedTime'])
-b = c = d = 0; detail = {}
+def time(tick):
+    days='Mon','Tues','Wednes','Thurs','Fri','Satur','Sun'
+    y,m,d,h,mi,s,w=localtime(tick)[0:7]
+    return color(f'{y}/{m}/{d} {days[w]}day {h}:{mi}:{s}')
+data = get('https://service-f9fjwngp-1252021671.bj.apigw.tencentcs.com/release/pneumonia').json()['data']
+print('国内更新时间:', time(data['statistics']['modifyTime']/1000))
+wanted = ['confirmed', 'cured', 'dead']
+provinces = set()
+
+#国内
 tb = PrettyTable()
 tb.field_names = ["省份", "确诊", "治愈", "死亡"]
-tb.align = "l"
-for i in data['caseList'][::-1]:
-    x=pr('confirmed'); y=pr('crued'); z=pr('died')
-    tb.add_row([i['area'], x, y, z])
-    detail[i['area']] = [i['subList'], add_0(x), add_0(y), add_0(z)]
-    b += x; c += y; d += z
-tb.add_row([cl(i) for i in ['总计', b, c, d]])
-# i:{'confirmed': '1', 'died': '', 'crued': '', 'area': '西藏', 'subList': [{'city': '拉萨', 'confirmed': '1', 'died': '', 'crued': ''}]}
+for province in data['listByArea']:
+    provinces.add(province['provinceShortName'])
+    tb.add_row([province['provinceShortName']]+[add_0(province[attr]) for attr in wanted])
+tb.add_row([color('总计')]+[color(add_0(data['statistics'][attr+'Count'])) for attr in wanted])
+tb.add_row([color('增量')]+[color(add_0(data['statistics'][attr+'Incr'])) for attr in wanted])
 print(tb)
 while True:
-    q = input('详细信息: ')
-    if q in detail:
+    q = input('详细信息:(xx省份/外国)')
+    if q == '外国':
+        #外国
         tb = PrettyTable()
-        tb.field_names = ["地区", "确诊", "治愈", "死亡"]
-        tb.align = "l"
-        m = detail[q]
-        tb.add_row([cl(m) for m in [q, m[1], m[2], m[3]]])
-        for i in m[0]:# i为对应的subList中的每一项
-            tb.add_row([i['city'], add_0(i['confirmed']), add_0(i['crued']), add_0(i['died'])])
+        tb.field_names = ["国家", "确诊", "治愈", "死亡"]
+        for country in data['listByOther']:
+            tb.add_row([country['name']]+[add_0(country[attr]) for attr in wanted])
         print(tb)
-    else:break
-a = input('Finished.')
+    elif q in provinces:
+        #城市
+        tb = PrettyTable()
+        tb.field_names = ["城市", "确诊", "治愈", "死亡"]
+        for province in data['listByArea']:
+            if province['provinceShortName'] == q: areas = province['cities']; break
+        for area in areas:
+            tb.add_row([area[attr] for attr in ['cityName']+wanted])
+        tb.add_row([color(q)]+[color(add_0(area[attr])) for attr in wanted])
+        print(tb)
+    else: break
